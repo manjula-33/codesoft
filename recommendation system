@@ -1,0 +1,60 @@
+import pandas as pd
+from surprise import Reader, Dataset, SVD
+from surprise.model_selection import train_test_split
+from surprise import accuracy
+
+# Load MovieLens dataset (user-item ratings data)
+# You can download the dataset from: https://grouplens.org/datasets/movielens/
+
+# For simplicity, I'll assume we have a CSV file "ratings.csv" with user_id, movie_id, rating columns
+# This file can be downloaded from MovieLens.
+
+# Example MovieLens dataset
+ratings = pd.read_csv('ratings.csv')
+
+# Define the Reader object which helps surprise to parse the data
+reader = Reader(rating_scale=(1, 5))
+
+# Load the data into Surprise
+data = Dataset.load_from_df(ratings[['userId', 'movieId', 'rating']], reader)
+
+# Split the data into training and test sets
+trainset, testset = train_test_split(data, test_size=0.2)
+
+# Build a collaborative filtering model using Singular Value Decomposition (SVD)
+model = SVD()
+
+# Train the model on the training data
+model.fit(trainset)
+
+# Test the model
+predictions = model.test(testset)
+
+# Calculate RMSE (Root Mean Squared Error)
+rmse = accuracy.rmse(predictions)
+print(f"RMSE: {rmse}")
+
+# Function to recommend top N movies for a given user
+def get_movie_recommendations(user_id, num_recommendations=10):
+    # Get all movie ids
+    all_movie_ids = ratings['movieId'].unique()
+
+    # Predict ratings for each movie that the user hasn't rated yet
+    predicted_ratings = []
+    for movie_id in all_movie_ids:
+        prediction = model.predict(user_id, movie_id)
+        predicted_ratings.append((movie_id, prediction.est))
+
+    # Sort by predicted rating in descending order and get the top N movies
+    recommended_movies = sorted(predicted_ratings, key=lambda x: x[1], reverse=True)[:num_recommendations]
+    
+    return recommended_movies
+
+# Example: Recommend 10 movies for a user with user_id = 1
+user_id = 1
+recommended_movies = get_movie_recommendations(user_id, 10)
+
+# Display the recommendations (movie_id and predicted rating)
+print(f"Top 10 recommendations for User {user_id}:")
+for movie_id, rating in recommended_movies:
+    print(f"Movie ID: {movie_id}, Predicted Rating: {rating:.2f}")
